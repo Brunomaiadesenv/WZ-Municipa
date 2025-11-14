@@ -1,0 +1,768 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Especificação: Integração WhatsApp</title>
+    <!-- Carregamento do Tailwind CSS para styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Configuração de fonte e plano de fundo geral */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f0f0; /* Cor de fundo que imita desktop */
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* Estilo para a barra de título da janela */
+        .window-title-bar {
+            background-color: #005fbc;
+            color: white;
+            padding: 8px 12px;
+            border-top-left-radius: 8px;
+            border-top-right-radius: 8px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 600;
+        }
+
+        /* Estilo para o botão de fechar/minimizar na barra de título */
+        .control-button {
+            width: 24px;
+            height: 24px;
+            margin-left: 4px;
+            border-radius: 4px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .control-button-close {
+            background-color: #e04343;
+        }
+
+        .control-button-close:hover {
+            background-color: #c93636;
+        }
+
+        /* Estilo das abas de navegação */
+        .tab-button {
+            padding: 10px 16px;
+            font-weight: 500;
+            cursor: pointer;
+            border-bottom: 3px solid transparent;
+            transition: all 0.2s;
+            color: #4a5568; /* gray-700 */
+            white-space: nowrap; /* Garante que o texto não quebre */
+        }
+
+        .tab-button.active {
+            border-color: #005fbc; /* Cor primária do Windows/aplicação */
+            color: #005fbc;
+            background-color: #ffffff;
+        }
+        
+        .code-block {
+            background-color: #1f2937; /* gray-800 */
+            color: #f9fafb; /* gray-50 */
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 0.85rem;
+            white-space: pre-wrap; /* Permite que o texto do código quebre em telas pequenas */
+        }
+
+        /* Estilo para simular o BPMN (mantido) */
+        .bpmn-step {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .bpmn-task {
+            background-color: #e0f2fe; /* light-blue-100 */
+            border: 2px solid #005fbc;
+            border-radius: 8px;
+            padding: 12px 20px;
+            font-weight: 600;
+            text-align: center;
+            min-width: 200px;
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+        }
+
+        .bpmn-arrow {
+            width: 40px;
+            height: 2px;
+            background-color: #005fbc;
+            position: relative;
+            margin: 0 10px;
+        }
+
+        .bpmn-arrow::after {
+            content: '▶';
+            color: #005fbc;
+            font-size: 10px;
+            position: absolute;
+            right: -5px;
+            top: -7px;
+        }
+
+        .bpmn-pool {
+            background-color: #fff;
+            border: 1px solid #ccc;
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Janela principal do aplicativo -->
+    <div id="app-window" class="bg-white shadow-2xl rounded-xl w-full max-w-6xl overflow-hidden transform transition-all duration-300">
+        
+        <!-- Barra de Título (simulando a janela) -->
+        <div class="window-title-bar">
+            <span>Integração WhatsApp - Especificação Técnica e de Análise de Negócio</span>
+            <div>
+                <!-- Botões de controle (apenas estéticos) -->
+                <span class="control-button bg-gray-400 hover:bg-gray-500 text-white">_</span>
+                <span class="control-button bg-gray-400 hover:bg-gray-500 text-white">□</span>
+                <span class="control-button control-button-close text-white">X</span>
+            </div>
+        </div>
+
+        <!-- Barra de Navegação / Menu (simulando guias) -->
+        <div id="tabs" class="flex border-b border-gray-200 bg-gray-50 overflow-x-auto">
+            <div class="tab-button active" data-tab="summary">Sumário & Opções</div>
+            <div class="tab-button" data-tab="scope">Escopo & NFR</div>
+            <div class="tab-button" data-tab="architecture">Arquitetura</div>
+            <div class="tab-button" data-tab="data-model">Modelo de Dados (SQL)</div>
+            <div class="tab-button" data-tab="message-flow">Fluxo BPMN</div>
+            <div class="tab-button" data-tab="api-ops">APIs & Operação</div>
+            <!-- NOVAS GUIAS DE CÓDIGO -->
+            <div class="tab-button" data-tab="sql-scripts">Code: SQL Scripts</div>
+            <div class="tab-button" data-tab="api-code">Code: API Módulo</div>
+            <div class="tab-button" data-tab="worker-code">Code: Worker</div>
+        </div>
+
+        <!-- Conteúdo Principal -->
+        <div id="content-area" class="p-6 h-[70vh] overflow-y-auto">
+
+            <!-- 1. Sumário Executivo e Opções -->
+            <div id="summary" class="tab-content">
+                <h2 class="text-xl font-bold mb-4 border-b pb-2 text-blue-800">1. Sumário Executivo e Abordagem</h2>
+                
+                <p class="mb-4"><strong>Contexto:</strong> O sistema existente (Java, SQL Server, WildFly) necessita de uma solução segura, escalável e auditável para envio de mensagens via WhatsApp (alertas, notificações, confirmações).</p>
+                <p class="mb-4"><strong>Objetivo:</strong> Projetar um <strong>messaging service desacoplado</strong> que expõe APIs internas e consome filas para processar envios, garantindo controle, auditoria e conformidade (LGPD, Políticas Meta).</p>
+
+                <h3 class="font-semibold text-lg mt-6 mb-3">Opções de Integração (Prós/Contras)</h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div class="border p-4 rounded-lg bg-green-50 shadow-sm">
+                        <h4 class="font-bold text-green-700">Meta WhatsApp Cloud API (Direto)</h4>
+                        <ul class="list-disc list-inside mt-2 text-sm">
+                            <li><strong class="text-green-600">Prós:</strong> Menor custo inicial, acesso direto à API oficial, controle total.</li>
+                            <li><strong class="text-red-600">Contras:</strong> Exige gestão de tokens/contas, aprovação de templates; menos recursos de dashboard prontos.</li>
+                        </ul>
+                    </div>
+                    <div class="border p-4 rounded-lg bg-yellow-50 shadow-sm">
+                        <h4 class="font-bold text-yellow-700">Business Solution Providers (BSPs) - Ex: Twilio, 360dialog</h4>
+                        <ul class="list-disc list-inside mt-2 text-sm">
+                            <li><strong class="text-green-600">Prós:</strong> Camadas adicionais (painel, filas, suporte), integração mais simples, recursos extras de entregabilidade.</li>
+                            <li><strong class="text-red-600">Contras:</strong> Custo por mensagem/serviço; dependência de terceiro.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3 class="font-semibold text-lg mt-6 mb-3">Restrições e Políticas (Compliance)</h3>
+                <ul class="list-disc list-inside ml-4 text-sm bg-gray-100 p-3 rounded-md">
+                    <li>Iniciação de conversa (fora da janela de 24h) <strong>SÓ</strong> via template aprovado pela Meta.</li>
+                    <li>Mensagens livres permitidas apenas dentro da janela de atendimento (24h após última mensagem do cliente).</li>
+                    <li>Templates devem seguir regras de conteúdo e passar por aprovação.</li>
+                    <li>Garantir o registro de Opt-in/Opt-out (LGPD).</li>
+                </ul>
+            </div>
+
+            <!-- 2. Escopo Funcional e Não-Funcional -->
+            <div id="scope" class="tab-content hidden">
+                <h2 class="text-xl font-bold mb-4 border-b pb-2 text-blue-800">2. Escopo Funcional e Requisitos Não-Funcionais</h2>
+
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="font-semibold text-lg mb-3">2.1. Funcionalidades Principais</h3>
+                        <ul class="list-disc list-inside ml-4 space-y-1">
+                            <li>Envio de mensagens transacionais (confirmação, notificação).</li>
+                            <li>Envio de mensagens programadas e por eventos.</li>
+                            <li>Gerenciamento de templates (cadastro, versionamento, aprovação).</li>
+                            <li>Recebimento de respostas / Webhooks (status de entrega, leitura, respostas do cliente).</li>
+                            <li>Fila e Retry (persistência e reprocessamento com backoff configurável).</li>
+                            <li>Dashboard/Logs/Auditoria (histórico, status, retransmissões, custos).</li>
+                            <li>Controle de opt-in / opt-out.</li>
+                        </ul>
+                    </div>
+                    <div>
+                        <h3 class="font-semibold text-lg mb-3">2.2. Casos de Uso Exemplares</h3>
+                        <ul class="list-disc list-inside ml-4 space-y-1">
+                            <li>Sistema detecta inclusão de nova dívida: disparar template de aviso de cobrança.</li>
+                            <li>Usuário finaliza processo e precisa de comprovante por WhatsApp.</li>
+                            <li>Rotina de SLA: enviar lembrete 48h antes de prazo.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3 class="font-semibold text-lg mt-6 mb-3 border-t pt-4">2.3. Requisitos Não-Funcionais (NFR)</h3>
+                <div class="space-y-3">
+                    <div class="bg-blue-50 p-3 rounded-md border-l-4 border-blue-500">
+                        <strong class="text-blue-700">Escalabilidade:</strong> Projetado para picos com fila e workers horizontais.
+                    </div>
+                    <div class="bg-blue-50 p-3 rounded-md border-l-4 border-blue-500">
+                        <strong class="text-blue-700">Disponibilidade:</strong> 99.5% para o módulo de envio; tolerância a falhas temporárias (retry/backoff).
+                    </div>
+                    <div class="bg-blue-50 p-3 rounded-md border-l-4 border-blue-500">
+                        <strong class="text-blue-700">Latência:</strong> Transacionais prioritárias — enfileiramento &lt; 1s, processamento preferencial.
+                    </div>
+                    <div class="bg-blue-50 p-3 rounded-md border-l-4 border-blue-500">
+                        <strong class="text-blue-700">Segurança:</strong> TLS, JWT para APIs internas, segredos em cofre (Vault/Key Vault/Secrets Manager).
+                    </div>
+                    <div class="bg-blue-50 p-3 rounded-md border-l-4 border-blue-500">
+                        <strong class="text-blue-700">Auditabilidade:</strong> Retenção de logs, dados mascarados conforme LGPD.
+                    </div>
+                </div>
+            </div>
+
+            <!-- 3. Arquitetura Proposta -->
+            <div id="architecture" class="tab-content hidden">
+                <h2 class="text-xl font-bold mb-4 border-b pb-2 text-blue-800">3. Arquitetura Proposta (Alta-Nível)</h2>
+                
+                <p class="mb-4">A solução é baseada no padrão de <strong>microserviço desacoplado</strong>, garantindo que falhas no serviço de mensagens não afetem o sistema principal em Java/WildFly.</p>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                    <div class="bg-gray-100 p-4 rounded-lg border">
+                        <strong class="text-lg text-blue-700 block mb-2">Módulo de Aplicação (Java/WildFly)</strong>
+                        <ul class="list-disc list-inside ml-4 space-y-1">
+                            <li>Expõe API interna (REST) para solicitação de envio.</li>
+                            <li>Camada de persistência (SQL Server) para registro de jobs.</li>
+                        </ul>
+                    </div>
+                    <div class="bg-gray-100 p-4 rounded-lg border">
+                        <strong class="text-lg text-blue-700 block mb-2">Message Queue (RabbitMQ/Kafka)</strong>
+                        <ul class="list-disc list-inside ml-4 space-y-1">
+                            <li>Desacoplamento de pedidos do processamento.</li>
+                            <li>Permite retries e escalonamento horizontal dos workers.</li>
+                        </ul>
+                    </div>
+                    <div class="bg-gray-100 p-4 rounded-lg border">
+                        <strong class="text-lg text-blue-700 block mb-2">Worker(s) de Envio (Java, autônomo)</strong>
+                        <ul class="list-disc list-inside ml-4 space-y-1">
+                            <li>Consome a fila, monta payload e chama o BSP/Meta API.</li>
+                            <li>Atualiza o status no SQL Server.</li>
+                        </ul>
+                    </div>
+                    <div class="bg-gray-100 p-4 rounded-lg border">
+                        <strong class="text-lg text-blue-700 block mb-2">Webhook Receiver (Endpoint Público)</strong>
+                        <ul class="list-disc list-inside ml-4 space-y-1">
+                            <li>Recebe webhooks de status (delivered, read, failed) e respostas de clientes.</li>
+                            <li>Deve validar assinatura/assincronia do fornecedor.</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3 class="font-semibold text-lg mt-6 mb-3 border-t pt-4">Observação de Implantação</h3>
+                <p class="text-sm">O módulo API pode ser deployado no WildFly (.war); os Workers devem ser serviços Java autônomos (Spring Boot/Quarkus) gerenciados (Docker/K8s) para escalabilidade isolada.</p>
+            </div>
+
+            <!-- 4. Modelo de Dados SQL -->
+            <div id="data-model" class="tab-content hidden">
+                <h2 class="text-xl font-bold mb-4 border-b pb-2 text-blue-800">4. Modelo de Dados (SQL Server)</h2>
+                <p class="mb-4">Estrutura básica para persistência de dados de telefones, templates, mensagens e auditoria.</p>
+
+                <div class="space-y-6">
+                    <!-- Tabela 1: whatsapp_phonebooks -->
+                    <div class="bg-gray-100 p-4 rounded-lg border">
+                        <h3 class="font-bold text-lg mb-2 text-green-700">1. whatsapp_phonebooks (Opt-in / Contato)</h3>
+                        <pre class="bg-gray-800 text-white p-3 rounded-md overflow-x-auto text-xs">
+id (PK, bigint)
+customer_id (nullable)
+phone_number (nvarchar(20))
+country_code (nvarchar(5))
+opt_in (bit)
+disabled (bit)
+created_at (datetime)
+updated_at (datetime)
+                        </pre>
+                        <p class="mt-2 text-xs"><em>Índice de busca: phone_number</em></p>
+                    </div>
+
+                    <!-- Tabela 2: whatsapp_templates -->
+                    <div class="bg-gray-100 p-4 rounded-lg border">
+                        <h3 class="font-bold text-lg mb-2 text-green-700">2. whatsapp_templates (Modelos Aprovados)</h3>
+                        <pre class="bg-gray-800 text-white p-3 rounded-md overflow-x-auto text-xs">
+id (PK)
+name (nvarchar(100))
+template_text (nvarchar(max))
+language (nvarchar(10))
+provider_template_id (nvarchar(100))
+status (nvarchar(20)) -- DRAFT / SUBMITTED / APPROVED / REJECTED
+created_by
+created_at
+                        </pre>
+                    </div>
+
+                    <!-- Tabela 3: whatsapp_messages -->
+                    <div class="bg-gray-100 p-4 rounded-lg border">
+                        <h3 class="font-bold text-lg mb-2 text-green-700">3. whatsapp_messages (Jobs de Envio)</h3>
+                        <pre class="bg-gray-800 text-white p-3 rounded-md overflow-x-auto text-xs">
+id (PK, bigint)
+template_id (FK)
+phonebook_id (FK)
+payload_json (nvarchar(max)) -- parâmetros aplicados no template
+status (nvarchar(20)) -- PENDING / SENT / DELIVERED / READ / FAILED
+provider_message_id (nvarchar(100))
+attempts (int)
+last_error (nvarchar(1000))
+created_at / updated_at / sent_at / delivered_at
+                        </pre>
+                        <p class="mt-2 text-xs"><em>Índices de busca: status, created_at, provider_message_id</em></p>
+                    </div>
+
+                     <!-- Tabela 4: whatsapp_audit_logs -->
+                    <div class="bg-gray-100 p-4 rounded-lg border">
+                        <h3 class="font-bold text-lg mb-2 text-green-700">4. whatsapp_audit_logs (Histórico de Eventos)</h3>
+                        <pre class="bg-gray-800 text-white p-3 rounded-md overflow-x-auto text-xs">
+id
+message_id (FK)
+event_type (nvarchar)
+event_payload (nvarchar(max))
+created_at
+                        </pre>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. Fluxo de Mensagens (BPMN Simulado) -->
+            <div id="message-flow" class="tab-content hidden">
+                <h2 class="text-xl font-bold mb-4 border-b pb-2 text-blue-800">5. Fluxo de Mensagens (BPMN Simulado)</h2>
+                <p class="mb-6 text-sm text-gray-600">Representação sequencial do fluxo de vida de uma mensagem, desde o evento no sistema principal até a confirmação de entrega (Delivered).</p>
+
+                <div class="bpmn-pool">
+                    <div class="font-bold text-center mb-4 border-b pb-2 text-gray-700">Piscina: Processo de Mensageria WhatsApp</div>
+
+                    <!-- Evento -->
+                    <div class="bpmn-step">
+                        <div class="bpmn-task bg-yellow-100 border-yellow-700 min-w-0">
+                            1. Evento de Disparo no Sistema Principal (Java)
+                        </div>
+                        <div class="bpmn-arrow"></div>
+                        <div class="bpmn-task">
+                            2. Chamada à API Interna: <code class="font-mono">POST /send</code>
+                        </div>
+                    </div>
+
+                    <!-- Persistência e Enfileiramento -->
+                    <div class="bpmn-step justify-start ml-24">
+                        <div class="bpmn-task">
+                            3. API: Validações (Opt-in), Grava DB (Status PENDING)
+                        </div>
+                        <div class="bpmn-arrow"></div>
+                        <div class="bpmn-task bg-red-100 border-red-700">
+                            4. API: Insere Mensagem na Message Queue (RabbitMQ/Kafka)
+                        </div>
+                    </div>
+
+                    <!-- Processamento pelo Worker -->
+                    <div class="bpmn-step ml-48">
+                        <div class="bpmn-arrow"></div>
+                        <div class="bpmn-task">
+                            5. Worker Consome Fila e Monta Payload (Template)
+                        </div>
+                        <div class="bpmn-arrow"></div>
+                        <div class="bpmn-task bg-purple-100 border-purple-700">
+                            6. Worker: Chama Provedor Externo (BSP/Meta Cloud API)
+                        </div>
+                    </div>
+
+                    <!-- Retorno e Webhook -->
+                    <div class="bpmn-step ml-48 justify-start">
+                         <div class="bpmn-arrow"></div>
+                        <div class="bpmn-task">
+                            7. Provedor Aceita: Devolve <code class="font-mono">message-id</code>
+                        </div>
+                        <div class="bpmn-arrow"></div>
+                        <div class="bpmn-task">
+                            8. Worker: Atualiza DB (Status SENT + <code class="font-mono">provider_message_id</code>)
+                        </div>
+                    </div>
+                     <!-- Webhook Assíncrono -->
+                     <div class="bpmn-step ml-48 justify-start">
+                        <div class="bpmn-arrow"></div>
+                        <div class="bpmn-task">
+                            9. Provedor Envia Webhook (Delivered, Read, Failed)
+                        </div>
+                        <div class="bpmn-arrow"></div>
+                        <div class="bpmn-task bg-green-100 border-green-700">
+                            10. Webhook Receiver: Valida Assinatura e Atualiza DB (Status DELIVERED/READ/FAILED)
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-yellow-50 p-3 mt-4 rounded-lg text-sm border-l-4 border-yellow-500">
+                    <strong>Tratamento de Erros:</strong> Em caso de erro transitório (Passo 6), o Worker re-enfileira com backoff exponencial. Após N tentativas (ex: 5), marca como FAILED.
+                </div>
+            </div>
+
+            <!-- 6. APIs e Operação -->
+            <div id="api-ops" class="tab-content hidden">
+                <h2 class="text-xl font-bold mb-4 border-b pb-2 text-blue-800">6. Interfaces (APIs Internas) e Operação</h2>
+
+                <h3 class="font-semibold text-lg mt-4 mb-3">6.1. Endpoints (API Interna)</h3>
+                <div class="space-y-3">
+                    <div class="bg-indigo-50 p-3 rounded-md border-l-4 border-indigo-500">
+                        <strong class="font-mono">POST /api/v1/whatsapp/send</strong> <span class="text-xs text-gray-600">(Envia/Agenda Mensagem)</span><br>
+                        <span class="text-sm">Payload: { phoneNumber, templateName, templateParams: {...}, priority, scheduledAt (opt), referenceId }</span>
+                    </div>
+                     <div class="bg-indigo-50 p-3 rounded-md border-l-4 border-indigo-500">
+                        <strong class="font-mono">GET /api/v1/whatsapp/messages/{id}</strong> <span class="text-xs text-gray-600">(Consulta Status)</span>
+                    </div>
+                     <div class="bg-indigo-50 p-3 rounded-md border-l-4 border-indigo-500">
+                        <strong class="font-mono">POST /api/v1/whatsapp/webhook</strong> <span class="text-xs text-gray-600">(Receptor Público de Webhooks do Provedor)</span>
+                    </div>
+                    <div class="bg-red-50 p-3 rounded-md border-l-4 border-red-500">
+                        <strong class="font-mono">POST /api/v1/whatsapp/templates</strong> / <strong class="font-mono">GET /api/v1/whatsapp/templates</strong> <span class="text-xs text-gray-600">(Endpoints de ADMIN - RESTRIÇÃO DE ACESSO)</span>
+                    </div>
+                </div>
+
+                <h3 class="font-semibold text-lg mt-6 mb-3 border-t pt-4">6.2. Requisitos Operacionais e de Segurança</h3>
+                <ul class="list-disc list-inside ml-4 space-y-1 text-sm">
+                    <li><strong class="text-red-700">Segurança:</strong> TLS (HTTPS) obrigatório para endpoints públicos; proteção do webhook com validação de assinatura/IPs. Segredos em cofre.</li>
+                    <li><strong class="text-red-700">Consentimento:</strong> Opt-in gravado e validado antes de qualquer tentativa de envio.</li>
+                    <li><strong class="text-blue-700">Rate-limiting:</strong> Aplicar limites por número e por tenant (se aplicável).</li>
+                    <li><strong class="text-blue-700">Retry Policy:</strong> Retry exponencial com cap máximo (ex: 5 tentativas) e uso de <code class="font-mono">referenceId</code> para idempotência.</li>
+                </ul>
+
+                 <h3 class="font-semibold text-lg mt-6 mb-3 border-t pt-4">6.3. Monitoramento e Testes</h3>
+                <p class="text-sm">Métricas a expor: <code class="font-mono">total_sent</code>, <code class="font-mono">total_failed</code>, <code class="font-mono">avg_latency</code>, <code class="font-mono">queue_depth</code>.</p>
+                <p class="text-sm mt-2">Alertas essenciais: falha de conexão contínua com provider, backlog na fila > threshold, alta taxa de rejects de templates.</p>
+                <p class="text-sm mt-2">Testes: Testes unitários (mock de provider), Testes de Integração (fluxo completo com DB real), Testes de Carga (simular picos).</p>
+            </div>
+            
+            <!-- NOVO CONTEÚDO 1: Scripts SQL -->
+            <div id="sql-scripts" class="tab-content hidden">
+                <h2 class="text-xl font-bold mb-4 border-b pb-2 text-blue-800">7. Scripts SQL — Criação de Tabelas e Índices (SQL Server)</h2>
+                <p class="mb-3 text-gray-700">Scripts DDL para a criação das tabelas no SQL Server, conforme o modelo de dados proposto.</p>
+                <pre class="code-block">
+CREATE TABLE whatsapp_phonebooks (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    customer_id BIGINT NULL,
+    phone_number NVARCHAR(20) NOT NULL,
+    country_code NVARCHAR(5) NULL,
+    opt_in BIT NOT NULL DEFAULT 1,
+    disabled BIT NOT NULL DEFAULT 0,
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME DEFAULT GETDATE()
+);
+
+CREATE INDEX idx_whatsapp_phonebooks_number ON whatsapp_phonebooks(phone_number);
+
+----------------------------------------------------
+CREATE TABLE whatsapp_templates (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    name NVARCHAR(100) NOT NULL,
+    template_text NVARCHAR(MAX) NOT NULL,
+    language NVARCHAR(10) DEFAULT 'pt_BR',
+    provider_template_id NVARCHAR(100) NULL,
+    status NVARCHAR(20) DEFAULT 'DRAFT',
+    created_by NVARCHAR(100),
+    created_at DATETIME DEFAULT GETDATE()
+);
+
+CREATE INDEX idx_whatsapp_templates_name ON whatsapp_templates(name);
+
+----------------------------------------------------
+CREATE TABLE whatsapp_messages (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    template_id BIGINT FOREIGN KEY REFERENCES whatsapp_templates(id),
+    phonebook_id BIGINT FOREIGN KEY REFERENCES whatsapp_phonebooks(id),
+    payload_json NVARCHAR(MAX) NOT NULL,
+    status NVARCHAR(20) DEFAULT 'PENDING',
+    provider_message_id NVARCHAR(100) NULL,
+    attempts INT DEFAULT 0,
+    last_error NVARCHAR(1000) NULL,
+    created_at DATETIME DEFAULT GETDATE(),
+    updated_at DATETIME NULL,
+    sent_at DATETIME NULL,
+    delivered_at DATETIME NULL
+);
+
+CREATE INDEX idx_whatsapp_messages_status ON whatsapp_messages(status);
+CREATE INDEX idx_whatsapp_messages_created_at ON whatsapp_messages(created_at);
+
+----------------------------------------------------
+CREATE TABLE whatsapp_audit_logs (
+    id BIGINT IDENTITY(1,1) PRIMARY KEY,
+    message_id BIGINT FOREIGN KEY REFERENCES whatsapp_messages(id),
+    event_type NVARCHAR(100) NOT NULL,
+    event_payload NVARCHAR(MAX) NULL,
+    created_at DATETIME DEFAULT GETDATE()
+);
+
+CREATE INDEX idx_whatsapp_audit_message ON whatsapp_audit_logs(message_id);
+                </pre>
+            </div>
+
+            <!-- NOVO CONTEÚDO 2: Código do Módulo API -->
+            <div id="api-code" class="tab-content hidden">
+                <h2 class="text-xl font-bold mb-4 border-b pb-2 text-blue-800">8. Código do Módulo API (Exemplo Jakarta EE / WildFly)</h2>
+                <p class="mb-3 text-gray-700">Exemplo de controladores REST (JAX-RS) e serviço (Service) para o módulo que será empacotado no WildFly.</p>
+                <pre class="code-block">
+/*
+ * ----------------------------------------------------
+ * WhatsAppController.java (API REST JAX-RS)
+ * Expõe endpoints para o sistema principal e para o webhook
+ * ----------------------------------------------------
+ */
+package br.com.supernova.whatsapp.api;
+
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.*;
+import br.com.supernova.whatsapp.model.*;
+import br.com.supernova.whatsapp.service.WhatsAppService;
+import java.util.*;
+
+@Path("/api/v1/whatsapp")
+@Produces(MediaType.APPLICATION_JSON)
+@Consumes(MediaType.APPLICATION_JSON)
+public class WhatsAppController {
+
+    private WhatsAppService service = new WhatsAppService();
+
+    @POST
+    @Path("/send")
+    public Response sendMessage(WhatsAppMessageRequest req) {
+        try {
+            WhatsAppMessage msg = service.enqueueMessage(req);
+            return Response.ok(msg).build();
+        } catch (Exception e) {
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR)
+                           .entity(Map.of("error", e.getMessage()))
+                           .build();
+        }
+    }
+
+    @GET
+    @Path("/messages/{id}")
+    public Response getMessage(@PathParam("id") Long id) {
+        WhatsAppMessage msg = service.getMessage(id);
+        if (msg == null) return Response.status(Response.Status.NOT_FOUND).build();
+        return Response.ok(msg).build();
+    }
+
+    @POST
+    @Path("/webhook")
+    public Response webhook(Map<String, Object> payload) {
+        service.handleWebhook(payload);
+        return Response.ok().build();
+    }
+}
+
+/*
+ * ----------------------------------------------------
+ * WhatsAppService.java (Camada de Serviço)
+ * Trata regras de negócio, persistência e enfileiramento
+ * ----------------------------------------------------
+ */
+package br.com.supernova.whatsapp.service;
+
+import br.com.supernova.whatsapp.model.*;
+import br.com.supernova.whatsapp.dao.WhatsAppDAO;
+
+public class WhatsAppService {
+
+    private WhatsAppDAO dao = new WhatsAppDAO();
+
+    public WhatsAppMessage enqueueMessage(WhatsAppMessageRequest req) {
+        // Implementar validação de opt-in/regras aqui
+        WhatsAppMessage msg = new WhatsAppMessage();
+        msg.setPhone(req.getPhoneNumber());
+        msg.setTemplateName(req.getTemplateName());
+        msg.setPayload(req.getTemplateParams());
+        msg.setStatus("PENDING");
+        dao.insertMessage(msg);
+        
+        // *Em sistemas reais, adicionar à fila MQ (RabbitMQ/Kafka) aqui*
+        // queueService.send(msg.getId());
+        
+        return msg;
+    }
+
+    public WhatsAppMessage getMessage(Long id) {
+        return dao.findMessageById(id);
+    }
+
+    public void handleWebhook(Map<String, Object> payload) {
+        // Lógica de processamento do webhook (atualizar status, logar evento)
+        dao.logEvent(payload);
+    }
+}
+                </pre>
+            </div>
+
+            <!-- NOVO CONTEÚDO 3: Código do Worker -->
+            <div id="worker-code" class="tab-content hidden">
+                <h2 class="text-xl font-bold mb-4 border-b pb-2 text-blue-800">9. Código do Worker — Envio e Tratamento de Erros</h2>
+                <p class="mb-3 text-gray-700">Exemplo de Worker autônomo (Spring Boot / Java) responsável por consumir a fila, chamar o provedor externo e gerenciar retries.</p>
+                <pre class="code-block">
+/*
+ * ----------------------------------------------------
+ * WhatsAppWorker.java (Lógica de Processamento)
+ * Utiliza OkHttp para chamar a API da Meta (exemplo)
+ * ----------------------------------------------------
+ */
+package br.com.supernova.whatsapp.worker;
+
+import com.fasterxml.jackson.databind.ObjectMapper;
+import okhttp3.*;
+import java.util.*;
+import br.com.supernova.whatsapp.model.*;
+import br.com.supernova.whatsapp.dao.WhatsAppDAO;
+
+public class WhatsAppWorker {
+
+    // VARIÁVEIS DE AMBIENTE - Substituir em produção!
+    private static final String API_URL = "https://graph.facebook.com/v19.0/YOUR_PHONE_NUMBER_ID/messages";
+    private static final String TOKEN = System.getenv("WHATSAPP_TOKEN");
+    
+    private static final OkHttpClient client = new OkHttpClient();
+    private static final ObjectMapper mapper = new ObjectMapper();
+    private WhatsAppDAO dao = new WhatsAppDAO();
+
+    public void processPendingMessages() {
+        // Em um sistema real, esta lista viria da Message Queue (MQ), não do DB.
+        List<WhatsAppMessage> pending = dao.findPendingMessages(); 
+        for (WhatsAppMessage msg : pending) {
+            try {
+                sendMessage(msg);
+                dao.updateStatus(msg.getId(), "SENT");
+            } catch (Exception ex) {
+                dao.registerError(msg.getId(), ex.getMessage());
+                // Lógica de retry
+                retryOrFail(msg);
+            }
+        }
+    }
+
+    private void sendMessage(WhatsAppMessage msg) throws Exception {
+        // Montagem do payload (usando o Template)
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("messaging_product", "whatsapp");
+        payload.put("to", msg.getPhone());
+        payload.put("type", "template");
+        Map<String, Object> template = Map.of(
+            "name", msg.getTemplateName(),
+            "language", Map.of("code", "pt_BR"),
+            "components", msg.getPayload() // Parâmetros/variáveis do template
+        );
+        payload.put("template", template);
+
+        String json = mapper.writeValueAsString(payload);
+        RequestBody body = RequestBody.create(json, MediaType.parse("application/json"));
+        
+        Request request = new Request.Builder()
+                .url(API_URL)
+                .header("Authorization", "Bearer " + TOKEN)
+                .post(body)
+                .build();
+
+        try (Response response = client.newCall(request).execute()) {
+            if (!response.isSuccessful()) {
+                // Erro de API (e.g., template não existe, rate limit)
+                throw new RuntimeException("Erro ao enviar mensagem: " + response.message());
+            }
+            // Sucesso: extrair provider_message_id do corpo da resposta (não implementado aqui)
+        }
+    }
+
+    private void retryOrFail(WhatsAppMessage msg) {
+        // Política de Retry Exponencial: máximo de 5 tentativas
+        if (msg.getAttempts() < 5) {
+            dao.incrementAttempts(msg.getId());
+            // Em uma arquitetura com MQ: re-enfileirar com atraso (backoff)
+        } else {
+            dao.updateStatus(msg.getId(), "FAILED");
+        }
+    }
+}
+
+/*
+ * ----------------------------------------------------
+ * Agendamento do Worker (Exemplo Spring Boot)
+ * ----------------------------------------------------
+ */
+// @Scheduled(fixedDelay = 30000) // Executa a cada 30 segundos
+// public void runWorker() {
+//     new WhatsAppWorker().processPendingMessages();
+// }
+                </pre>
+            </div>
+            
+        </div>
+        
+         <!-- Barra de Status (simulando rodapé da aplicação) -->
+        <div class="p-2 bg-gray-200 border-t border-gray-300 text-xs text-gray-600 flex justify-between rounded-b-xl">
+            <span>Status: Documento Carregado e Pronto para Consulta</span>
+            <span>Versão 1.1 - 2025</span>
+        </div>
+
+    </div>
+
+    <script>
+        // Função para mostrar o conteúdo da aba selecionada
+        function showTab(tabId) {
+            // Esconde todos os conteúdos
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.add('hidden');
+            });
+            // Remove a classe 'active' de todos os botões
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+
+            // Mostra o conteúdo da aba desejada
+            const activeContent = document.getElementById(tabId);
+            if (activeContent) {
+                activeContent.classList.remove('hidden');
+            }
+            
+            // Ativa o botão correspondente
+            const activeButton = document.querySelector(`.tab-button[data-tab="${tabId}"]`);
+            if (activeButton) {
+                activeButton.classList.add('active');
+            }
+        }
+
+        // Adiciona listeners aos botões de aba ao carregar a página
+        window.onload = function() {
+            const tabsContainer = document.getElementById('tabs');
+            
+            tabsContainer.addEventListener('click', function(event) {
+                const target = event.target;
+                if (target.classList.contains('tab-button')) {
+                    const tabId = target.getAttribute('data-tab');
+                    showTab(tabId);
+                }
+            });
+
+            // Inicializa mostrando a primeira aba ('summary')
+            showTab('summary');
+        };
+    </script>
+</body>
+</html>
